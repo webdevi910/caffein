@@ -1,0 +1,70 @@
+name: Dependency Submission
+on:
+  push:
+    branches: [master]
+permissions: read-all
+
+env:
+  GRADLE_ENTERPRISE_CACHE_PASSWORD: ${{ secrets.GRADLE_ENTERPRISE_CACHE_PASSWORD }}
+  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
+  JAVA_VERSION: 20
+
+jobs:
+  dependency-submission:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          disable-sudo: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.adoptium.net:443
+            api.github.com:443
+            caffeine.gradle-enterprise.cloud:443
+            downloads.gradle.org:443
+            downloads.gradle-dn.com:443
+            github.com:443
+            jcenter.bintray.com:443
+            objects.githubusercontent.com:443
+            plugins.gradle.org:443
+            plugins-artifacts.gradle.org:443
+            repo.maven.apache.org:443
+            repo1.maven.org:443
+            services.gradle.org:443
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: Wandalen/wretry.action@a163f62ae554a8f3cbe27b23db15b60c0ae2e93c # v1.3.0
+        timeout-minutes: 5
+        with:
+          action: actions/setup-java@5ffc13f4174014e2d4d4572b3d74c3fa61aeb2c2 # v3.11.0
+          with: |
+            cache: gradle
+            distribution: temurin
+            java-version: ${{ env.JAVA_VERSION }}
+          attempt_limit: 3
+          attempt_delay: 2000
+      - name: Setup Gradle
+        uses: Wandalen/wretry.action@a163f62ae554a8f3cbe27b23db15b60c0ae2e93c # v1.3.0
+        timeout-minutes: 5
+        with:
+          action: gradle/gradle-build-action@749f47bda3e44aa060e82d7b3ef7e40d953bd629 # v2.4.2
+          with: |
+            cache-read-only: false
+            arguments: help --no-scan
+            generate-job-summary: false
+            gradle-home-cache-cleanup: true
+          attempt_limit: 3
+          attempt_delay: 2000
+      - name: Submit Dependency Graph
+        uses: mikepenz/gradle-dependency-submission@91b021ee7e1ec04cb057c055cc80c5124e70242c # v0.9.0
+        with:
+          gradle-build-module: |-
+            :simulator
+            :caffeine
+            :jcache
+            :guava
+          include-build-environment: true
+          sub-module-mode: INDIVIDUAL_DEEP

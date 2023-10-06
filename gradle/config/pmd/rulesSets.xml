@@ -1,0 +1,130 @@
+<?xml version="1.0"?>
+<ruleset name="caffeine"
+    xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+  <description>PMD rules for Caffeine</description>
+  <exclude-pattern>.*/simulator/.*/generated/.*</exclude-pattern>
+
+  <rule ref="category/java/bestpractices.xml">
+    <exclude name="UseVarargs"/>
+    <exclude name="LooseCoupling"/>
+    <exclude name="SystemPrintln"/>
+    <exclude name="MissingOverride"/>
+    <exclude name="GuardLogStatement"/>
+    <exclude name="OneDeclarationPerLine"/>
+    <exclude name="ReplaceHashtableWithMap"/>
+    <exclude name="AvoidReassigningParameters"/>
+    <exclude name="LiteralsFirstInComparisons"/>
+  </rule>
+
+  <rule ref="category/java/bestpractices.xml/LooseCoupling">
+    <properties>
+      <property name="allowedTypes" value="
+        java.util.Properties
+        ,java.util.concurrent.ConcurrentHashMap
+        ,com.google.common.collect.ImmutableMap
+        ,com.google.common.collect.ImmutableSet
+        ,com.google.common.collect.ImmutableList
+        ,com.github.benmanes.caffeine.cache.BoundedLocalCache
+        ,com.github.benmanes.caffeine.cache.UnboundedLocalCache
+      "/>
+    </properties>
+  </rule>
+
+  <rule ref="category/java/codestyle.xml">
+    <exclude name="LongVariable"/>
+    <exclude name="OnlyOneReturn"/>
+    <exclude name="ShortVariable"/>
+    <exclude name="GenericsNaming"/>
+    <exclude name="ShortClassName"/>
+    <exclude name="ShortMethodName"/>
+    <exclude name="ConfusingTernary"/>
+    <exclude name="UnnecessaryReturn"/>
+    <exclude name="UseDiamondOperator"/>
+    <exclude name="UselessParentheses"/>
+    <exclude name="PrematureDeclaration"/>
+    <exclude name="TooManyStaticImports"/>
+    <exclude name="AtLeastOneConstructor"/>
+    <exclude name="CallSuperInConstructor"/>
+    <exclude name="ClassNamingConventions"/>
+    <exclude name="FieldNamingConventions"/>
+    <exclude name="LocalVariableCouldBeFinal"/>
+    <exclude name="MethodArgumentCouldBeFinal"/>
+    <exclude name="CommentDefaultAccessModifier"/>
+    <exclude name="UnnecessaryFullyQualifiedName"/>
+    <exclude name="FieldDeclarationsShouldBeAtStartOfClass"/>
+    <exclude name="EmptyMethodInAbstractClassShouldBeAbstract"/>
+  </rule>
+  <rule ref="category/java/codestyle.xml/ConfusingTernary">
+    <properties>
+      <property name="ignoreElseIf" value="true"/>
+    </properties>
+  </rule>
+  <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName">
+    <properties>
+      <property name="reportStaticFields" value="false"/>
+      <property name="reportStaticMethods" value="false"/>
+    </properties>
+  </rule>
+
+  <rule ref="category/java/design.xml">
+    <exclude name="GodClass"/>
+    <exclude name="DataClass"/>
+    <exclude name="NcssCount"/>
+    <exclude name="LawOfDemeter"/>
+    <exclude name="TooManyFields"/>
+    <exclude name="TooManyMethods"/>
+    <exclude name="NPathComplexity"/>
+    <exclude name="ExcessiveImports"/>
+    <exclude name="CognitiveComplexity"/>
+    <exclude name="CyclomaticComplexity"/>
+    <exclude name="ExcessiveClassLength"/>
+    <exclude name="ExcessivePublicCount"/>
+    <exclude name="LoosePackageCoupling"/>
+    <exclude name="ExcessiveMethodLength"/>
+    <exclude name="CouplingBetweenObjects"/>
+    <exclude name="AvoidRethrowingException"/>
+    <exclude name="AbstractClassWithoutAnyMethod"/>
+    <exclude name="AvoidCatchingGenericException"/>
+    <exclude name="AvoidThrowingRawExceptionTypes"/>
+  </rule>
+
+  <rule ref="category/java/documentation.xml">
+    <exclude name="CommentSize"/>
+    <exclude name="CommentRequired"/>
+    <exclude name="UncommentedEmptyMethodBody"/>
+    <exclude name="UncommentedEmptyConstructor"/>
+  </rule>
+
+  <rule ref="category/java/errorprone.xml">
+    <exclude name="DontImportSun"/>
+    <exclude name="EmptyWhileStmt"/>
+    <exclude name="NullAssignment"/>
+    <exclude name="AssignmentInOperand"/>
+    <exclude name="UseProperClassLoader"/>
+    <exclude name="AvoidCatchingThrowable"/>
+    <exclude name="AvoidDuplicateLiterals"/>
+    <exclude name="CompareObjectsWithEquals"/>
+    <exclude name="AvoidLiteralsInIfCondition"/>
+    <exclude name="AvoidFieldNameMatchingMethodName"/>
+    <exclude name="ConstructorCallsOverridableMethod"/>
+    <exclude name="AvoidBranchingStatementAsLastInLoop"/>
+  </rule>
+  <rule ref="category/java/errorprone.xml/AvoidDuplicateLiterals">
+    <properties>
+      <property name="skipAnnotations" value="true"/>
+      <property name="maxDuplicateLiterals" value="10"/>
+    </properties>
+  </rule>
+
+  <rule ref="category/java/multithreading.xml">
+    <exclude name="DoNotUseThreads"/>
+    <exclude name="AvoidUsingVolatile"/>
+    <exclude name="UseConcurrentHashMap"/>
+  </rule>
+
+  <rule ref="category/java/performance.xml">
+    <exclude name="AvoidInstantiatingObjectsInLoops"/>
+  </rule>
+</ruleset>

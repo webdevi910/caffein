@@ -1,0 +1,166 @@
+# Runs the test suite on arm64 to verify correctness on a weaker memory model compared to x86's
+version: 2.1
+
+parameters:
+  java_version:
+    type: integer
+    default: 17
+
+commands:
+  setup_java:
+    parameters:
+      version:
+        type: integer
+    steps:
+      - run:
+          name: Workaround for running apt behind the scene
+          command: sudo killall -9 apt-get || true
+      - run:
+          name: Switch to US mirror for faster performances
+          command: sudo sed -i 's/\/\/archive.ubuntu.com/\/\/us.archive.ubuntu.com/g' /etc/apt/sources.list
+      - run:
+          name: Add openjdk-r PPA
+          command: |
+            sudo apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 EB9B1D8886F44E2A
+            sudo add-apt-repository --yes ppa:openjdk-r/ppa
+            sudo apt-get --yes update
+      - run:
+          name: Generate cache version
+          command: |
+            apt-cache policy openjdk-<< parameters.version >>-jdk | grep 'Candidate:' | cut -d' ' -f4 > .openjdk_version
+            cat .openjdk_version
+      - restore_cache:
+          keys:
+            - apt-cache-{{ checksum ".openjdk_version" }}-v1
+      - run:
+          name: Create temp directory if restore cache didn't
+          command: mkdir -p /tmp/archives
+      - run:
+          name: Restore apt cache
+          command: sudo rsync -av /tmp/archives/ /var/cache/apt/archives/
+      - run:
+          name: Install openjdk
+          command: |
+            sudo apt-get install --yes openjdk-<< parameters.version >>-jdk
+            sudo update-java-alternatives --set java-1.<< parameters.version >>.0-openjdk-arm64
+      - run:
+          name: Prepare to save apt cache
+          command: rsync -av /var/cache/apt/archives/*.deb /tmp/archives/
+      - save_cache:
+          key: apt-cache-{{ checksum ".openjdk_version" }}-v1
+          paths:
+            - /tmp/archives
+  restore_gradle_cache:
+    parameters:
+      cache_key:
+        type: string
+    steps:
+      - restore_cache:
+          key: << parameters.cache_key >>-gradle-wrapper-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+      - restore_cache:
+          key: << parameters.cache_key >>-gradle-cache-{{ checksum "build.gradle.kts" }}
+  save_gradle_cache:
+    parameters:
+      cache_key:
+        type: string
+    steps:
+      - save_cache:
+          paths:
+            - ~/.gradle/wrapper
+          key: << parameters.cache_key >>-gradle-wrapper-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+      - save_cache:
+          paths:
+            - ~/.gradle/caches
+          key: << parameters.cache_key >>-gradle-cache-{{ checksum "build.gradle.kts" }}
+  run_tests:
+    parameters:
+      cache_key:
+        type: string
+      test_steps:
+        type: steps
+    steps:
+      - checkout
+      - setup_java:
+          version: << pipeline.parameters.java_version >>
+      - restore_gradle_cache:
+          cache_key: << parameters.cache_key >>
+      - steps: << parameters.test_steps >>
+      - save_gradle_cache:
+          cache_key: << parameters.cache_key >>
+
+jobs:
+  compile:
+    resource_class: arm.medium
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      JAVA_VERSION: << pipeline.parameters.java_version >>
+      TERM: dumb
+    steps:
+      - run_tests:
+          cache_key: compile
+          test_steps:
+            - run:
+                name: Compile
+                no_output_timeout: 1h
+                command: ./gradlew check -x test
+  test:
+    resource_class: arm.medium
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      JAVA_VERSION: << pipeline.parameters.java_version >>
+      TERM: dumb
+    parameters:
+      task:
+        type: string
+    steps:
+      - run_tests:
+          cache_key: << parameters.task >>
+          test_steps:
+            - run:
+                name: Run tests
+                no_output_timeout: 1h
+                command: ./gradlew << parameters.task >>
+
+workflows:
+  version: 2
+  workflow:
+    jobs:
+      - compile
+      - test:
+          requires: [compile]
+          matrix:
+            parameters:
+              task:
+                - caffeine:weakKeysAndStrongValuesStatsAsyncCaffeineSlowTest
+                - caffeine:weakKeysAndStrongValuesStatsSyncCaffeineSlowTest
+                - caffeine:strongKeysAndWeakValuesStatsSyncCaffeineSlowTest
+                - caffeine:strongKeysAndSoftValuesStatsSyncCaffeineSlowTest
+                - caffeine:strongKeysAndStrongValuesStatsAsyncCaffeineTest
+                - caffeine:weakKeysAndWeakValuesStatsSyncCaffeineSlowTest
+                - caffeine:weakKeysAndSoftValuesStatsSyncCaffeineSlowTest
+                - caffeine:strongKeysAndStrongValuesStatsSyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesStatsAsyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesStatsSyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesAsyncCaffeineSlowTest
+                - caffeine:strongKeysAndWeakValuesStatsSyncCaffeineTest
+                - caffeine:strongKeysAndSoftValuesStatsSyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesSyncCaffeineSlowTest
+                - caffeine:strongKeysAndWeakValuesSyncCaffeineSlowTest
+                - caffeine:strongKeysAndSoftValuesSyncCaffeineSlowTest
+                - caffeine:weakKeysAndWeakValuesStatsSyncCaffeineTest
+                - caffeine:weakKeysAndSoftValuesStatsSyncCaffeineTest
+                - caffeine:strongKeysAndStrongValuesAsyncCaffeineTest
+                - caffeine:weakKeysAndWeakValuesSyncCaffeineSlowTest
+                - caffeine:weakKeysAndSoftValuesSyncCaffeineSlowTest
+                - caffeine:strongKeysAndStrongValuesSyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesAsyncCaffeineTest
+                - caffeine:weakKeysAndStrongValuesSyncCaffeineTest
+                - caffeine:strongKeysAndWeakValuesSyncCaffeineTest
+                - caffeine:strongKeysAndSoftValuesSyncCaffeineTest
+                - caffeine:weakKeysAndWeakValuesSyncCaffeineTest
+                - caffeine:weakKeysAndSoftValuesSyncCaffeineTest
+                - caffeine:lincheckTest
+                - caffeine:isolatedTest
+                - caffeine:junitTest

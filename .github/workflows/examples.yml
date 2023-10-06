@@ -1,0 +1,126 @@
+name: examples
+permissions: read-all
+on: [ push, pull_request ]
+
+env:
+  GRADLE_ENTERPRISE_CACHE_PASSWORD: ${{ secrets.GRADLE_ENTERPRISE_CACHE_PASSWORD }}
+  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
+  JAVA_VERSION: 20
+  SNAPSHOT: true
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          disable-sudo: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            api.adoptium.net:443
+            caffeine.gradle-enterprise.cloud:443
+            download.oracle.com:443
+            downloads.gradle.org:443
+            downloads.gradle-dn.com:443
+            gds.oracle.com:443
+            github.com:443
+            jcenter.bintray.com:443
+            objects.githubusercontent.com:443
+            plugins.gradle.org:443
+            plugins-artifacts.gradle.org:443
+            repo.maven.apache.org:443
+            repo1.maven.org:443
+            services.gradle.org:443
+            www.graalvm.org:443
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: Wandalen/wretry.action@a163f62ae554a8f3cbe27b23db15b60c0ae2e93c # v1.3.0
+        timeout-minutes: 5
+        with:
+          action: actions/setup-java@5ffc13f4174014e2d4d4572b3d74c3fa61aeb2c2 # v3.11.0
+          with: |
+            distribution: temurin
+            java-version: ${{ env.JAVA_VERSION }}
+          attempt_limit: 3
+          attempt_delay: 2000
+      - name: Setup Gradle
+        uses: Wandalen/wretry.action@a163f62ae554a8f3cbe27b23db15b60c0ae2e93c # v1.3.0
+        timeout-minutes: 5
+        with:
+          action: gradle/gradle-build-action@749f47bda3e44aa060e82d7b3ef7e40d953bd629 # v2.4.2
+          with: |
+            cache-read-only: false
+            arguments: help --no-scan
+            generate-job-summary: false
+            gradle-home-cache-cleanup: true
+            gradle-home-cache-strict-match: true
+          attempt_limit: 3
+          attempt_delay: 2000
+      - name: Setup Maven
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ env.JAVA_VERSION }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Simulator
+        run: >
+          ./gradlew simulator:run
+          -Dcaffeine.simulator.report.output=$(pwd)/simulation.md
+          -Dcaffeine.simulator.files.paths.0="corda:trace_vaultservice.gz"
+          -Dcaffeine.simulator.files.paths.1="lirs:loop.trace.gz"
+          -Dcaffeine.simulator.files.paths.2="corda:trace_vaultservice.gz"
+      - name: Publish Simulator Results
+        run: |
+          {
+            echo '### Adaptivity'
+            echo '```'
+            cat $(pwd)/simulation.md
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+      - name: Chart Simulation
+        run: ./gradlew -q simulator:simulate --maximumSize=100,200,300
+      - name: Memory Overhead
+        run: ./gradlew -q caffeine:memoryOverhead
+      - name: Stresser (read)
+        run: >
+          timeout 1m ./gradlew -q caffeine:stress --workload=read
+          || ([[ $? -eq 124 ]] && echo "Timeout reached, but that's OK")
+      - name: Stresser (write)
+        run: >
+          timeout 1m ./gradlew -q caffeine:stress --workload=write
+          || ([[ $? -eq 124 ]] && echo "Timeout reached, but that's OK")
+      - name: Stresser (refresh)
+        run: >
+          timeout 1m ./gradlew -q caffeine:stress --workload=refresh
+          || ([[ $? -eq 124 ]] && echo "Timeout reached, but that's OK")
+      - name: Write-behind (rxjava)
+        working-directory: examples/write-behind-rxjava
+        run: ./gradlew build
+      - name: Coalescing Bulkloader (reactor)
+        working-directory: examples/coalescing-bulkloader-reactor
+        run: ./gradlew build
+      - name: Hibernate (jcache)
+        working-directory: examples/hibernate
+        run: ./gradlew build
+      - name: Resilience (failsafe)
+        working-directory: examples/resilience-failsafe
+        run: ./gradlew build
+      - name: Prepare for Graal Native Image
+        uses: ./.github/actions/run-gradle
+        with:
+          java: GraalVM
+          token: ${{ secrets.GITHUB_TOKEN }}
+          arguments: -q caffeine:clean caffeine:jar
+      - name: Graal Native Image
+        uses: ./.github/actions/run-gradle
+        with:
+          java: GraalVM
+          token: ${{ secrets.GITHUB_TOKEN }}
+          arguments: >
+            --project-dir examples/graal-native
+            -Pagent run
+            metadataCopy --task run --dir src/main/resources/META-INF/native-image
+            nativeRun nativeTest

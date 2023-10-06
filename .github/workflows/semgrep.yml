@@ -1,0 +1,41 @@
+name: Semgrep
+permissions: read-all
+on:
+  pull_request: {}
+  push:
+    branches: [master, v2.dev, v3.dev]
+
+jobs:
+  semgrep:
+    name: Scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - run: semgrep scan --sarif --output=semgrep.sarif
+        env:
+          SEMGREP_RULES: >-
+            p/java
+            p/github-actions
+            p/semgrep-rule-lints
+            p/semgrep-misconfigurations
+      - name: Check file existence
+        id: check_files
+        uses: andstor/file-existence-action@20b4d2e596410855db8f9ca21e96fbe18e12930b # v2.0.0
+        with:
+          files: semgrep.sarif
+      - name: Upload SARIF file for GitHub Advanced Security Dashboard
+        uses: github/codeql-action/upload-sarif@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
+        if: steps.check_files.outputs.files_exists == 'true'
+        with:
+          sarif_file: semgrep.sarif

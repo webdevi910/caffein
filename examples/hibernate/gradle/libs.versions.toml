@@ -1,0 +1,28 @@
+[versions]
+caffeine = "3.1.8"
+h2 = "2.2.224"
+hibernate = "6.3.1.Final"
+junit = "5.10.0"
+log4j2 = "2.20.0"
+slf4j = "2.0.7"
+truth = "1.1.5"
+versions = "0.48.0"
+
+[libraries]
+caffeine = { module = "com.github.ben-manes.caffeine:jcache", version.ref = "caffeine" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+hibernate-core = { module = "org.hibernate.orm:hibernate-core", version.ref = "hibernate" }
+hibernate-jcache = { module = "org.hibernate.orm:hibernate-jcache", version.ref = "hibernate" }
+hibernate-jpamodelgen = { module = "org.hibernate.orm:hibernate-jpamodelgen", version.ref = "hibernate" }
+hibernate-hikaricp = { module = "org.hibernate.orm:hibernate-hikaricp", version.ref = "hibernate" }
+junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+log4j2-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j2" }
+log4j2-slf4j = { module = "org.apache.logging.log4j:log4j-slf4j-impl", version.ref = "log4j2" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+
+[bundles]
+hibernate = ["hibernate-core", "hibernate-jcache", "hibernate-hikaricp"]
+log4j2 = ["log4j2-core", "log4j2-slf4j"]
+
+[plugins]
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }

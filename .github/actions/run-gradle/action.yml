@@ -1,0 +1,90 @@
+name: Run Gradle
+description: Sets up Gradle JDKs and runs Gradle
+inputs:
+  arguments:
+    required: true
+    description: Gradle arguments
+  java:
+    required: true
+    description: The JDK version
+  early-access:
+    default: '21'
+    required: false
+    description: The early access release
+  graal:
+    default: '17'
+    required: false
+    description: The GraalVM version
+  token:
+    required: false
+    description: 'A Github PAT'
+runs:
+  using: composite
+  steps:
+    - name: Prepare OpenJDK
+      if: inputs.java != 'GraalVM'
+      shell: bash
+      run: echo "JAVA_VERSION=${{ inputs.java }}" >> $GITHUB_ENV
+    - name: Prepare GraalVM
+      if: inputs.java == 'GraalVM'
+      shell: bash
+      run: |
+        echo "GRAALVM=true" >> $GITHUB_ENV
+        echo "JAVA_VERSION=${{ inputs.graal }}" >> $GITHUB_ENV
+    - name: Set up JDK ${{ inputs.java }}
+      uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
+      if: (inputs.early-access != inputs.java) && (inputs.java != 'GraalVM')
+      with:
+        java-version: ${{ inputs.java }}
+        distribution: temurin
+    - name: Set up JDK ${{ inputs.java }}
+      uses: oracle-actions/setup-java@7a0114d66dbd02646abd345c3395b34c148e6126 # v1.3.2
+      if: (inputs.early-access == inputs.java) && (inputs.java != 'GraalVM')
+      with:
+        release: ${{ inputs.java }}
+        website: jdk.java.net
+        version: latest
+    - name: Set up GraalVM
+      uses: graalvm/setup-graalvm@0a27862568a8481fbfd3e2ce38c6445e34c0bed4 # v1
+      if: inputs.java == 'GraalVM'
+      with:
+        distribution: 'graalvm'
+        components: 'native-image'
+        github-token: ${{ inputs.token }}
+        java-version: ${{ env.JAVA_VERSION }}
+    - name: Prepare JDK ${{ inputs.java }}
+      shell: bash
+      run: |
+        echo "JDK_CI=$JAVA_HOME" >> $GITHUB_ENV
+        echo "JDK_EA=${{ inputs.early-access == inputs.java }}" >> $GITHUB_ENV
+    - name: Set up JDK 17
+      id: setup-gradle-jdk
+      uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
+      if: inputs.java != 'GraalVM'
+      with:
+        java-version: 17
+        distribution: temurin
+    - name: Setup Gradle
+      id: setup-gradle
+      uses: gradle/gradle-build-action@842c587ad8aa4c68eeba24c396e15af4c2e9f30a # v2.9.0
+      continue-on-error: true
+      env:
+        JAVA_HOME: ${{ steps.setup-gradle-jdk.outputs.path }}
+      with:
+        cache-read-only: false
+        generate-job-summary: false
+        gradle-home-cache-cleanup: true
+        gradle-home-cache-strict-match: true
+        arguments: |
+          -Porg.gradle.java.installations.auto-download=false
+          --no-scan
+          help
+    - name: Backoff
+      if: steps.setup-gradle.outcome == 'failure'
+      shell: bash
+      run: sleep 10
+    - name: Run ${{ inputs.arguments }}
+      env:
+        JAVA_HOME: ${{ steps.setup-gradle-jdk.outputs.path }}
+      shell: bash
+      run: ./gradlew -Porg.gradle.java.installations.auto-download=false ${{ inputs.arguments }}
